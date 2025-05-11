@@ -23,7 +23,8 @@ namespace JsonEntities
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
             {
-                options.SchemaFilter<SchemaFilter>();
+                //options.SchemaFilter<SchemaFilter>();
+                options.AddSchemaFilterInstance(new CustomParameterFilter());
             });
 
             var app = builder.Build();

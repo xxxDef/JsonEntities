@@ -1,5 +1,6 @@
 ﻿using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using System.Reflection;
 
 namespace JsonEntities
 {
@@ -17,9 +18,33 @@ namespace JsonEntities
                 schema.Properties.Add("TemperatureF", new OpenApiSchema
                 {
                     Type = "integer",
-                    Description = "Temperature in Fahrenheit.",                   
+                    Description = "Temperature in Fahrenheit.",
                 });
             }
         }
     }
+
+    public class CustomParameterFilter : ISchemaFilter
+    {
+        public void Apply(OpenApiSchema schema, SchemaFilterContext context)
+        {
+            var viewTypeInfo = ViewTypeInfo.GetViewTypeInfo(context.Type);
+            if (viewTypeInfo == null)
+                return;
+
+
+            schema.Description += $" ViewTypeInfo: {viewTypeInfo}";
+
+            schema.Properties = viewTypeInfo.Properties.ToDictionary(
+                p => p.Name,
+                p => new OpenApiSchema
+                {
+                    Type = p.Type.Name,
+                    Description = p.Description,
+                    Nullable = p.IsNullable,
+                    Format = p.Format
+                });
+        }
+    }
 }
+

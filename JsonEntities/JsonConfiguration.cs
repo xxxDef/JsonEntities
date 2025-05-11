@@ -9,39 +9,53 @@ public static class JsonConfiguration
     {
         var options = new JsonSerializerOptions
         {
-            //PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            TypeInfoResolver = new DefaultJsonTypeInfoResolver
-            {
-                Modifiers =
-                {
-                    (JsonTypeInfo typeInfo) =>
-                    {
-                        if (typeInfo.Type == typeof(WeatherForecast))
-                        {
-                            foreach (var property in typeInfo.Properties)
-                            {
-                                if (property.Name == "TemperatureC")
-                                {
-                                    property.Name = "temperature_cel";
-                                }
-                            }
-                            var propertyToIgnore = typeInfo.Properties.FirstOrDefault(p => p.Name == "fieldToIgnore");
-                            if (propertyToIgnore != null)
-                            {
-                                typeInfo.Properties.Remove(propertyToIgnore);
-                            }
-
-                            var farProp = typeInfo.CreateJsonPropertyInfo(typeof(int), "temperature_far");
-                            farProp.Get = (weatherForecast) => 32 + ((WeatherForecast)weatherForecast).TemperatureC;
-                            farProp.Set = (weatherForecast, value) => ((WeatherForecast)weatherForecast).TemperatureC = value is int v ? v - 32 : 0;
-
-                            typeInfo.Properties.Add(farProp);
-                        }
-                    }
-                }
-            }
+            TypeInfoResolver = new CustomJsonTypeInfoResolver()
         };
 
+
+
         return options;
+    }
+}
+
+public class CustomJsonTypeInfoResolver : DefaultJsonTypeInfoResolver
+{
+    public override JsonTypeInfo GetTypeInfo(Type type, JsonSerializerOptions options)
+    {
+        var typeInfo = ViewTypeInfo.GetViewTypeInfo(type);
+        if (typeInfo != null)
+        {
+            var jsonTypeInfo = JsonTypeInfo.CreateJsonTypeInfo(type, options);
+
+            foreach (var pi in typeInfo.Properties)
+            {
+                var property = jsonTypeInfo.CreateJsonPropertyInfo(pi.Type, pi.Name);
+                property.Set = (obj, val) =>
+                {
+                    var value = obj.GetType().GetProperty("Value").GetValue(obj, null);
+
+                    if (pi.Set != null)
+                    {
+                        pi.Set(value, val);
+                    }
+                    else
+                        value.GetType().GetProperty(pi.Name).SetValue(value, val, null);
+                };
+                property.Get = (obj) =>
+                {
+                    var value = obj.GetType().GetProperty("Value").GetValue(obj, null);
+                    if (pi.Get != null)
+                        return pi.Get(value);
+                    else
+
+                        return value.GetType().GetProperty(pi.Name)?.GetValue(value, null);
+                };
+
+                jsonTypeInfo.Properties.Add(property);
+            }
+            return jsonTypeInfo;
+        }
+
+        return base.GetTypeInfo(type, options);
     }
 }
